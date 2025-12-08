@@ -1,4 +1,4 @@
-Import path from 'path';
+Import import path from 'path';
 import { defineConfig, loadEnv } from 'vite'; // تم تصحيح 'Base defineConfig' إلى 'defineConfig'
 import react from '@vitejs/plugin-react';
 
