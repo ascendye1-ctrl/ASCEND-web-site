@@ -70,23 +70,6 @@ const ProductList: React.FC<ProductListProps> = ({
       if (!filterState || !setFilterState) return null;
       return (
           <div className="space-y-10">
-              {/* Price Filter */}
-              <div>
-                  <h3 className="text-xs font-black uppercase tracking-wider text-brand-navy dark:text-white mb-6">Price</h3>
-                  <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      <span className="font-mono">${filterState.priceRange[0]}</span>
-                      <span className="font-mono">${filterState.priceRange[1]}</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="500" 
-                    value={filterState.priceRange[1]} 
-                    onChange={(e) => setFilterState({...filterState, priceRange: [filterState.priceRange[0], parseInt(e.target.value)]})}
-                    className="w-full h-1 bg-gray-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-brand-navy dark:accent-brand-lime"
-                  />
-              </div>
-
               {/* Brand Filter */}
               <div>
                   <h3 className="text-xs font-black uppercase tracking-wider text-brand-navy dark:text-white mb-6">Brands</h3>
@@ -316,3 +299,4 @@ const ProductList: React.FC<ProductListProps> = ({
 };
 
 export default ProductList;
+    

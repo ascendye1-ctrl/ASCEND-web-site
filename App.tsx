@@ -10,6 +10,7 @@ import { Sparkles, ArrowLeft, ArrowRight, Star, CheckCircle, Search, Filter, Loc
 import { translations } from './utils/translations';
 import SEO from './components/SEO';
 import ErrorBoundary from './components/ErrorBoundary';
+import { Routes, Route, useNavigate, useLocation, useParams, Navigate } from 'react-router-dom';
 
 // Lazy load heavy components
 const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
@@ -217,10 +218,11 @@ export const MOCK_VENDORS: Vendor[] = [
 ];
 
 const App: React.FC = () => {
-  const [viewState, setViewState] = useState<ViewState>('HOME');
+  const navigate = useNavigate();
+  const location = useLocation();
   const [products, setProducts] = useState<Product[]>([]);
+  // selectedProduct and selectedVendor are derived from URL usually, but for consistency/cache we might update state
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -330,16 +332,33 @@ const App: React.FC = () => {
     setCart(prev => prev.filter(item => item.id !== id));
   };
 
+  const handleNavigate = (view: ViewState) => {
+    // Map ViewState to Routes
+    switch (view) {
+        case 'HOME': navigate('/'); break;
+        case 'SHOP': navigate('/shop'); break;
+        case 'COLLECTIONS': navigate('/collections'); break;
+        case 'ABOUT': navigate('/about'); break;
+        case 'CAREERS': navigate('/careers'); break;
+        case 'PRIVACY': navigate('/privacy'); break;
+        case 'TERMS': navigate('/terms'); break;
+        case 'SHIPPING': navigate('/shipping'); break;
+        case 'RETURNS': navigate('/returns'); break;
+        case 'PAYMENT_GATE': navigate('/checkout'); break;
+        case 'CHECKOUT_SUCCESS': navigate('/success'); break;
+        case 'ADMIN_DASHBOARD': navigate('/admin'); break;
+        case 'VENDOR_ONBOARDING': navigate('/sell'); break;
+        default: navigate('/'); break;
+    }
+  };
+
   const handleProductClick = (product: Product) => {
     setSelectedProduct(product);
-    setViewState('PRODUCT_DETAIL');
-    window.scrollTo(0, 0);
+    navigate(`/product/${product.slug || product.id}`);
   };
 
   const handleVendorClick = (vendor: Vendor) => {
-      setSelectedVendor(vendor);
-      setViewState('STORE_FRONT');
-      window.scrollTo(0, 0);
+      navigate(`/store/${vendor.slug}`);
   };
 
   const handleMagicDescription = async () => {
@@ -371,17 +390,17 @@ const App: React.FC = () => {
     setIsGeneratingDesc(false);
   };
 
-  // Checkout Logic - Updated for Payment Gate
+  // Checkout Logic
   const [checkoutVendor, setCheckoutVendor] = useState<string | undefined>(undefined);
 
   const handleCheckoutInitiate = (vendorName?: string) => {
       setCheckoutVendor(vendorName);
-      setViewState('PAYMENT_GATE');
+      navigate('/checkout');
       setIsCartOpen(false);
   };
 
   const handlePaymentSuccess = () => {
-      setViewState('CHECKOUT_SUCCESS');
+      navigate('/success');
       if (checkoutVendor) {
           // Remove only items from this vendor
           setCart(prev => prev.filter(item => item.vendorName !== checkoutVendor));
@@ -482,15 +501,14 @@ const App: React.FC = () => {
       return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   }, [cart, checkoutVendor]);
 
-  // --- Render Views ---
+  // --- Render Views Helpers ---
 
-  const renderProductDetail = () => {
-    if (!selectedProduct) return null;
+  const renderProductDetail = (product: Product) => {
     return (
       <div className="bg-white/80 dark:bg-brand-dark/80 backdrop-blur-md pt-6 pb-16 sm:pb-24 transition-colors duration-300 animate-fade-in rounded-3xl mx-4 mt-4 shadow-xl border border-white/20">
          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mt-6">
             <button 
-                onClick={() => setViewState('HOME')}
+                onClick={() => navigate('/')}
                 className="flex items-center text-sm text-gray-500 hover:text-brand-navy dark:text-gray-400 dark:hover:text-brand-lime mb-8 transition-colors min-h-[44px]"
             >
                 <ArrowBackIcon className="w-4 h-4 me-2" /> {t.products.backToCatalog}
@@ -500,8 +518,8 @@ const App: React.FC = () => {
                 {/* Image */}
                 <div className="aspect-h-1 aspect-w-1 w-full overflow-hidden rounded-2xl shadow-2xl bg-gray-100 dark:bg-slate-800 border border-gray-100 dark:border-slate-700">
                     <img
-                        src={selectedProduct.image}
-                        alt={getProductName(selectedProduct)}
+                        src={product.image}
+                        alt={getProductName(product)}
                         className="h-full w-full object-cover object-center transform hover:scale-105 transition-transform duration-700"
                     />
                 </div>
@@ -509,40 +527,39 @@ const App: React.FC = () => {
                 {/* Info */}
                 <div className="mt-10 px-4 sm:mt-16 sm:px-0 lg:mt-0">
                     <div className="flex justify-between items-start">
-                        <h1 className="text-4xl font-black tracking-tight text-brand-navy dark:text-white mb-2">{getProductName(selectedProduct)}</h1>
-                        {selectedProduct.brand && (
+                        <h1 className="text-4xl font-black tracking-tight text-brand-navy dark:text-white mb-2">{getProductName(product)}</h1>
+                        {product.brand && (
                             <span 
                               onClick={() => {
-                                 // Simple mock lookup for vendor navigation
-                                 const vendor = MOCK_VENDORS.find(v => v.name.includes(selectedProduct.brand || ''));
+                                 const vendor = MOCK_VENDORS.find(v => v.name.includes(product.brand || ''));
                                  if (vendor) handleVendorClick(vendor);
                               }}
                               className="inline-flex items-center rounded-full bg-white dark:bg-slate-800 px-3 py-1 text-xs font-bold text-gray-600 dark:text-gray-400 ring-1 ring-inset ring-gray-200 dark:ring-slate-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700 shadow-sm"
                             >
-                                {selectedProduct.brand}
+                                {product.brand}
                             </span>
                         )}
                     </div>
                     
                     <div className="mt-4 mb-6">
-                        <p className="text-3xl font-bold text-gray-900 dark:text-brand-lime">${selectedProduct.price.toFixed(2)}</p>
+                        <p className="text-3xl font-bold text-gray-900 dark:text-brand-lime">${product.price.toFixed(2)}</p>
                     </div>
 
                     <div className="flex items-center space-x-2 rtl:space-x-reverse mb-8">
                          <div className="flex text-yellow-400">
                             {[...Array(5)].map((_, i) => (
-                                <Star key={i} className={`w-5 h-5 ${i < Math.floor(selectedProduct.rating) ? 'fill-current' : 'text-gray-200 dark:text-gray-700'}`} />
+                                <Star key={i} className={`w-5 h-5 ${i < Math.floor(product.rating) ? 'fill-current' : 'text-gray-200 dark:text-gray-700'}`} />
                             ))}
                          </div>
-                         <span className="text-sm font-medium text-gray-500 dark:text-gray-400 ml-2">{selectedProduct.rating} (120 {t.products.reviews})</span>
+                         <span className="text-sm font-medium text-gray-500 dark:text-gray-400 ml-2">{product.rating} (120 {t.products.reviews})</span>
                     </div>
 
                     {/* Color Swatches if available */}
-                    {selectedProduct.colors && selectedProduct.colors.length > 0 && (
+                    {product.colors && product.colors.length > 0 && (
                         <div className="mb-8">
                             <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase tracking-wider">Available Colors</h3>
                             <div className="flex gap-3">
-                                {selectedProduct.colors.map(color => (
+                                {product.colors.map(color => (
                                     <button 
                                         key={color} 
                                         className="w-10 h-10 rounded-full border-2 border-white dark:border-slate-800 shadow-lg ring-2 ring-transparent hover:ring-brand-navy dark:hover:ring-brand-lime transition-all"
@@ -557,7 +574,7 @@ const App: React.FC = () => {
                     <div className="space-y-4 mb-10">
                         <div className="relative group p-6 bg-white dark:bg-slate-800/50 rounded-2xl border border-gray-100 dark:border-slate-700/50 backdrop-blur-sm shadow-sm">
                              <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-2 uppercase tracking-wider">{t.products.description}</h3>
-                             <p className="text-base text-gray-600 dark:text-gray-300 leading-relaxed">{getProductDesc(selectedProduct)}</p>
+                             <p className="text-base text-gray-600 dark:text-gray-300 leading-relaxed">{getProductDesc(product)}</p>
                              <button 
                                 onClick={handleMagicDescription}
                                 disabled={isGeneratingDesc}
@@ -571,15 +588,15 @@ const App: React.FC = () => {
 
                     <div className="mt-10">
                         <button
-                            onClick={() => addToCart(selectedProduct)}
-                            disabled={!selectedProduct.inStock}
+                            onClick={() => addToCart(product)}
+                            disabled={!product.inStock}
                             className={`flex w-full items-center justify-center rounded-full border border-transparent px-8 py-4 text-base font-bold text-white transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-brand-navy focus:ring-offset-2 dark:ring-offset-slate-900 min-h-[56px] ${
-                                selectedProduct.inStock 
+                                product.inStock 
                                 ? 'bg-brand-navy dark:bg-white dark:text-brand-navy hover:bg-brand-navy/90' 
                                 : 'bg-gray-400 cursor-not-allowed'
                             }`}
                         >
-                            {selectedProduct.inStock ? t.products.addToBag : 'Out of Stock'}
+                            {product.inStock ? t.products.addToBag : 'Out of Stock'}
                         </button>
                     </div>
                 </div>
@@ -615,7 +632,7 @@ const App: React.FC = () => {
               
               <div className="flex flex-col sm:flex-row gap-4 w-full max-w-sm">
                 <button 
-                  onClick={() => setViewState('HOME')}
+                  onClick={() => navigate('/')}
                   className="flex-1 rounded-full bg-brand-navy px-6 py-4 text-sm font-bold text-white shadow-lg shadow-brand-navy/20 hover:bg-brand-navy/90 hover:shadow-brand-navy/30 transition-all flex items-center justify-center gap-2 min-h-[48px]"
                 >
                     {t.checkout.continue} <ArrowRight className="w-4 h-4" />
@@ -662,7 +679,7 @@ const App: React.FC = () => {
                     { title: t.pages.collections.tech, img: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" },
                     { title: t.pages.collections.home, img: "https://images.unsplash.com/photo-1517256064527-09c73fc73e38?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" }
                  ].map((col, idx) => (
-                     <div key={idx} className="group relative h-96 rounded-[2rem] overflow-hidden cursor-pointer shadow-xl" onClick={() => setViewState('SHOP')}>
+                     <div key={idx} className="group relative h-96 rounded-[2rem] overflow-hidden cursor-pointer shadow-xl" onClick={() => navigate('/shop')}>
                          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors z-10 duration-500"></div>
                          <img src={col.img} alt={col.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out" />
                          <div className="absolute inset-0 flex items-center justify-center z-20">
@@ -699,6 +716,34 @@ const App: React.FC = () => {
       </div>
   );
 
+  // Wrappers for URL Params
+  const ProductDetailRoute = () => {
+      const { slug } = useParams();
+      const product = products.find(p => p.slug === slug || p.id.toString() === slug);
+      
+      useEffect(() => {
+        if(product) setSelectedProduct(product);
+      }, [product]);
+
+      if (!product) return <Navigate to="/404" replace />;
+      return renderProductDetail(product);
+  };
+
+  const StoreFrontRoute = () => {
+      const { slug } = useParams();
+      const vendor = MOCK_VENDORS.find(v => v.slug === slug || v.id.toString() === slug);
+      
+      if (!vendor) return <Navigate to="/404" replace />;
+      
+      const vendorProducts = products.filter(p => p.vendorId === vendor.id);
+      
+      return (
+        <Suspense fallback={<LoadingFallback />}>
+            <StoreFront vendor={vendor} products={vendorProducts} onProductClick={handleProductClick} onAddToCart={addToCart} language={language} />
+        </Suspense>
+      );
+  };
+
   return (
     <div className={`${theme} ${theme === 'dark' ? 'dark' : ''} min-h-screen font-sans`} dir={isRtl ? 'rtl' : 'ltr'}>
         <div className="min-h-screen flex flex-col transition-colors duration-300 relative z-0">
@@ -706,14 +751,14 @@ const App: React.FC = () => {
              title={selectedProduct ? selectedProduct.seoTitle || selectedProduct.name : undefined}
              description={selectedProduct ? selectedProduct.seoDescription || selectedProduct.description : undefined}
              language={language}
-             path={viewState === 'HOME' ? '/' : undefined}
+             path={location.pathname}
           />
           
           <ErrorBoundary>
             <Header 
                 cartItems={cart} 
                 setIsCartOpen={setIsCartOpen}
-                onNavigate={setViewState}
+                onNavigate={handleNavigate}
                 language={language}
                 setLanguage={setLanguage}
                 theme={theme}
@@ -733,95 +778,97 @@ const App: React.FC = () => {
             />
 
             <main className="flex-grow relative z-10">
-                {viewState === 'HOME' && (
-                <div>
-                    <Hero language={language} />
-                    <Suspense fallback={<div className="h-96 flex items-center justify-center"><LoadingFallback /></div>}>
-                        <FeaturedCategories onNavigate={setViewState} language={language} />
-                    </Suspense>
-                    <Suspense fallback={<div className="h-96" />}>
-                        <BrandStory />
-                    </Suspense>
-                    <ProductList 
-                        products={filteredProducts} 
-                        onProductClick={handleProductClick} 
-                        onAddToCart={addToCart}
-                        language={language}
-                        isLoading={isLoadingProducts}
-                        filterState={filterState}
-                        setFilterState={setFilterState}
-                    />
-                </div>
-                )}
-                {viewState === 'SHOP' && renderShop()}
-                {viewState === 'COLLECTIONS' && renderCollections()}
-                {viewState === 'ABOUT' && renderAbout()}
-                
-                {viewState === 'CAREERS' && (
-                     <div className="min-h-screen py-24 flex items-center justify-center">
-                         <div className="text-center">
-                             <h1 className="text-4xl font-black text-brand-navy dark:text-white">Careers</h1>
-                             <p className="text-gray-500 mt-2">Join us.</p>
+                <Routes>
+                    <Route path="/" element={
+                        <>
+                            <Hero language={language} />
+                            <Suspense fallback={<div className="h-96 flex items-center justify-center"><LoadingFallback /></div>}>
+                                <FeaturedCategories onNavigate={handleNavigate} language={language} />
+                            </Suspense>
+                            <Suspense fallback={<div className="h-96" />}>
+                                <BrandStory />
+                            </Suspense>
+                            <ProductList 
+                                products={filteredProducts} 
+                                onProductClick={handleProductClick} 
+                                onAddToCart={addToCart}
+                                language={language}
+                                isLoading={isLoadingProducts}
+                                filterState={filterState}
+                                setFilterState={setFilterState}
+                            />
+                        </>
+                    } />
+                    <Route path="/shop" element={renderShop()} />
+                    <Route path="/collections" element={renderCollections()} />
+                    <Route path="/about" element={renderAbout()} />
+                    
+                    <Route path="/careers" element={
+                         <div className="min-h-screen py-24 flex items-center justify-center">
+                             <div className="text-center">
+                                 <h1 className="text-4xl font-black text-brand-navy dark:text-white">Careers</h1>
+                                 <p className="text-gray-500 mt-2">Join us.</p>
+                             </div>
                          </div>
-                     </div>
-                )}
-                {viewState === 'PRIVACY' && (
-                    <div className="min-h-screen py-24 px-8 max-w-4xl mx-auto">
-                        <h1 className="text-3xl font-bold mb-4 dark:text-white">Privacy Policy</h1>
-                        <p className="dark:text-gray-300">{translations[language].pages.privacy.intro}</p>
-                    </div>
-                )}
-                {viewState === 'TERMS' && (
-                    <div className="min-h-screen py-24 px-8 max-w-4xl mx-auto">
-                        <h1 className="text-3xl font-bold mb-4 dark:text-white">Terms</h1>
-                         <p className="dark:text-gray-300">{translations[language].pages.terms.intro}</p>
-                    </div>
-                )}
-                {viewState === 'SHIPPING' && (
-                    <div className="min-h-screen py-24 px-8 max-w-4xl mx-auto">
-                        <h1 className="text-3xl font-bold mb-4 dark:text-white">Shipping</h1>
-                         <p className="dark:text-gray-300">{translations[language].pages.shipping.intro}</p>
-                    </div>
-                )}
-                {viewState === 'RETURNS' && (
-                     <div className="min-h-screen py-24 px-8 max-w-4xl mx-auto">
-                        <h1 className="text-3xl font-bold mb-4 dark:text-white">Returns</h1>
-                         <p className="dark:text-gray-300">{translations[language].pages.returns.intro}</p>
-                    </div>
-                )}
-                
-                {viewState === 'PRODUCT_DETAIL' && renderProductDetail()}
-                {viewState === 'PAYMENT_GATE' && (
-                  <Suspense fallback={<LoadingFallback />}>
-                    <PaymentGate 
-                        total={cartTotal} 
-                        onSuccess={handlePaymentSuccess} 
-                        onCancel={() => setViewState('HOME')} 
-                        language={language}
-                    />
-                  </Suspense>
-                )}
-                {viewState === 'CHECKOUT_SUCCESS' && renderCheckoutSuccess()}
-                {viewState === 'ADMIN_DASHBOARD' && (
-                   <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingFallback /></div>}>
-                     <AdminDashboard language={language} onNavigate={setViewState} />
-                   </Suspense>
-                )}
-                {viewState === 'VENDOR_ONBOARDING' && (
-                   <Suspense fallback={<LoadingFallback />}>
-                     <VendorOnboarding language={language} onComplete={() => setViewState('ADMIN_DASHBOARD')} />
-                   </Suspense>
-                )}
-                {viewState === 'STORE_FRONT' && selectedVendor && (
-                  <Suspense fallback={<LoadingFallback />}>
-                    <StoreFront vendor={selectedVendor} products={products.filter(p => p.vendorId === selectedVendor.id)} onProductClick={handleProductClick} onAddToCart={addToCart} language={language} />
-                  </Suspense>
-                )}
-                {viewState === 'NOT_FOUND' && (
-                  <Suspense fallback={<LoadingFallback />}>
-                    <NotFound language={language} onNavigate={setViewState} />
-                  </Suspense>
-                )}
+                    } />
+                    <Route path="/privacy" element={
+                        <div className="min-h-screen py-24 px-8 max-w-4xl mx-auto">
+                            <h1 className="text-3xl font-bold mb-4 dark:text-white">Privacy Policy</h1>
+                            <p className="dark:text-gray-300">{translations[language].pages.privacy.intro}</p>
+                        </div>
+                    } />
+                    <Route path="/terms" element={
+                        <div className="min-h-screen py-24 px-8 max-w-4xl mx-auto">
+                            <h1 className="text-3xl font-bold mb-4 dark:text-white">Terms</h1>
+                             <p className="dark:text-gray-300">{translations[language].pages.terms.intro}</p>
+                        </div>
+                    } />
+                    <Route path="/shipping" element={
+                        <div className="min-h-screen py-24 px-8 max-w-4xl mx-auto">
+                            <h1 className="text-3xl font-bold mb-4 dark:text-white">Shipping</h1>
+                             <p className="dark:text-gray-300">{translations[language].pages.shipping.intro}</p>
+                        </div>
+                    } />
+                    <Route path="/returns" element={
+                         <div className="min-h-screen py-24 px-8 max-w-4xl mx-auto">
+                            <h1 className="text-3xl font-bold mb-4 dark:text-white">Returns</h1>
+                             <p className="dark:text-gray-300">{translations[language].pages.returns.intro}</p>
+                        </div>
+                    } />
+                    
+                    <Route path="/product/:slug" element={<ProductDetailRoute />} />
+                    
+                    <Route path="/checkout" element={
+                      <Suspense fallback={<LoadingFallback />}>
+                        <PaymentGate 
+                            total={cartTotal} 
+                            onSuccess={handlePaymentSuccess} 
+                            onCancel={() => navigate('/')} 
+                            language={language}
+                        />
+                      </Suspense>
+                    } />
+                    <Route path="/success" element={renderCheckoutSuccess()} />
+                    
+                    <Route path="/admin" element={
+                       <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><LoadingFallback /></div>}>
+                         <AdminDashboard language={language} onNavigate={handleNavigate} />
+                       </Suspense>
+                    } />
+                    <Route path="/sell" element={
+                       <Suspense fallback={<LoadingFallback />}>
+                         <VendorOnboarding language={language} onComplete={() => navigate('/admin')} />
+                       </Suspense>
+                    } />
+                    <Route path="/store/:slug" element={<StoreFrontRoute />} />
+                    
+                    <Route path="/404" element={
+                      <Suspense fallback={<LoadingFallback />}>
+                        <NotFound language={language} onNavigate={handleNavigate} />
+                      </Suspense>
+                    } />
+                    <Route path="*" element={<Navigate to="/404" replace />} />
+                </Routes>
             </main>
 
             <Suspense fallback={null}>
@@ -829,7 +876,12 @@ const App: React.FC = () => {
             </Suspense>
 
             {/* Footer with Database Status Indicator */}
-            {viewState !== 'ADMIN_DASHBOARD' && viewState !== 'NOT_FOUND' && viewState !== 'VENDOR_ONBOARDING' && viewState !== 'STORE_FRONT' && viewState !== 'PAYMENT_GATE' && (
+            {/* We can simply use location check here */}
+            {!location.pathname.startsWith('/admin') && 
+             !location.pathname.startsWith('/404') && 
+             !location.pathname.startsWith('/sell') && 
+             !location.pathname.startsWith('/store') && 
+             !location.pathname.startsWith('/checkout') && (
                 <footer className="bg-brand-navy dark:bg-slate-950 text-white py-12 transition-colors duration-300 relative z-20">
                     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-3 gap-8">
                         <div>
@@ -839,13 +891,13 @@ const App: React.FC = () => {
                         <div>
                             <h3 className="text-lg font-bold mb-4">{t.footer.links}</h3>
                             <ul className="space-y-2 text-gray-300 text-sm">
-                                <li onClick={() => setViewState('ABOUT')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.about}</li>
-                                <li onClick={() => setViewState('CAREERS')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.careers}</li>
-                                <li onClick={() => setViewState('PRIVACY')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.privacy}</li>
-                                <li onClick={() => setViewState('TERMS')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.terms}</li>
-                                <li onClick={() => setViewState('SHIPPING')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.shipping}</li>
-                                <li onClick={() => setViewState('RETURNS')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.returns}</li>
-                                <li onClick={() => setViewState('VENDOR_ONBOARDING')} className="hover:text-brand-lime cursor-pointer hover:underline p-1 font-bold text-brand-sky">Sell on ASCEND</li>
+                                <li onClick={() => navigate('/about')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.about}</li>
+                                <li onClick={() => navigate('/careers')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.careers}</li>
+                                <li onClick={() => navigate('/privacy')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.privacy}</li>
+                                <li onClick={() => navigate('/terms')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.terms}</li>
+                                <li onClick={() => navigate('/shipping')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.shipping}</li>
+                                <li onClick={() => navigate('/returns')} className="hover:text-white cursor-pointer hover:underline p-1">{t.footer.returns}</li>
+                                <li onClick={() => navigate('/sell')} className="hover:text-brand-lime cursor-pointer hover:underline p-1 font-bold text-brand-sky">Sell on ASCEND</li>
                             </ul>
                         </div>
                         <div>

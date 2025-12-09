@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, Menu, ShoppingCart, Moon, Sun, LayoutDashboard, X, ChevronRight, ChevronLeft, User, Languages, Share2, Check } from 'lucide-react';
+import { Search, Menu, ShoppingCart, Moon, Sun, LayoutDashboard, X, ChevronRight, ChevronLeft, User, Globe, Share2, Check } from 'lucide-react';
 import { CartItem, Language, Theme, ViewState } from '../types';
 import { translations } from '../utils/translations';
 
@@ -132,7 +132,7 @@ const Header: React.FC<HeaderProps> = ({
                 className="hidden sm:flex p-2.5 text-brand-navy dark:text-white hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors"
                 title={translations[language].common.switchLanguage}
               >
-                <Languages className="w-5 h-5" />
+                <Globe className="w-5 h-5" />
                 <span className="sr-only">{translations[language].common.switchLanguage}</span>
               </button>
 
@@ -211,6 +211,7 @@ const Header: React.FC<HeaderProps> = ({
                         onClick={() => setLanguage(language === 'en' ? 'ar' : 'en')}
                         className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-sm font-bold shadow-sm"
                       >
+                         <Globe className="w-4 h-4" />
                          {translations[language].common.language}
                       </button>
                       <button 
