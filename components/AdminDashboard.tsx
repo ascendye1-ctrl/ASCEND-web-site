@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   TrendingUp, 
@@ -77,7 +75,11 @@ import {
   Star,
   Database,
   FileUp,
-  Play
+  Play,
+  Wand2,
+  Video,
+  ImagePlus,
+  Sparkles
 } from 'lucide-react';
 import { Language, ViewState, Payout, Product, Customer, Order, MarketingCampaign, Pipeline, TransformationRule } from '../types';
 import { translations } from '../utils/translations';
@@ -86,6 +88,7 @@ import { INITIAL_PRODUCTS } from '../App';
 import DiagnosticsPanel from './DiagnosticsPanel';
 import { saveImageToDB, getImageFromDB } from '../services/localDB';
 import { optimizeImage } from '../utils/imageOptimizer';
+import { generateMarketingImage, editProductImage, generateProductVideo } from '../services/geminiService';
 
 interface AdminDashboardProps {
   language: Language;
@@ -196,6 +199,215 @@ const ResourceManager = <T extends { id: string | number }>({
        </div>
     </div>
   );
+};
+
+
+// --- Creative Studio View ---
+const CreativeStudioView: React.FC<{ language: Language }> = ({ language }) => {
+    const [mode, setMode] = useState<'generate' | 'edit' | 'video'>('generate');
+    const [prompt, setPrompt] = useState('');
+    const [imageSize, setImageSize] = useState<'1K' | '2K' | '4K'>('1K');
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
+    const [resultUrl, setResultUrl] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [hasKey, setHasKey] = useState(true); // Assuming true initially, will check for Veo
+
+    // Initial check for API Key presence for Veo
+    useEffect(() => {
+        if (mode === 'video') {
+             // @ts-ignore
+             const checkKey = async () => { if (window.aistudio && window.aistudio.hasSelectedApiKey) {
+                 // @ts-ignore
+                 const has = await window.aistudio.hasSelectedApiKey();
+                 setHasKey(has);
+             }};
+             checkKey();
+        }
+    }, [mode]);
+
+    const handleSelectKey = async () => {
+        // @ts-ignore
+        if (window.aistudio && window.aistudio.openSelectKey) {
+             // @ts-ignore
+            await window.aistudio.openSelectKey();
+            // Race condition mitigation: Assume success
+            setHasKey(true);
+        }
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (ev) => setSelectedImage(ev.target?.result as string);
+            reader.readAsDataURL(e.target.files[0]);
+        }
+    };
+
+    const handleAction = async () => {
+        setIsLoading(true);
+        setResultUrl(null);
+        try {
+            if (mode === 'generate') {
+                const url = await generateMarketingImage(prompt, imageSize);
+                setResultUrl(url);
+            } else if (mode === 'edit') {
+                if (!selectedImage) throw new Error("Please upload an image first.");
+                const url = await editProductImage(selectedImage, prompt);
+                setResultUrl(url);
+            } else if (mode === 'video') {
+                if (!selectedImage) throw new Error("Please upload an image first.");
+                if (!hasKey) {
+                    await handleSelectKey(); // Prompt again if somehow false
+                }
+                const url = await generateProductVideo(selectedImage, prompt || "Animate this product naturally");
+                setResultUrl(url);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Generation failed. See console for details.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <div className="animate-fade-in space-y-6 max-w-4xl mx-auto">
+            <h2 className="text-2xl font-bold text-brand-navy dark:text-white flex items-center gap-2">
+                <Wand2 className="w-6 h-6 text-brand-lime" /> Creative Studio
+            </h2>
+            
+            {/* Tabs */}
+            <div className="flex gap-4 border-b border-gray-200 dark:border-slate-800">
+                <button 
+                  onClick={() => { setMode('generate'); setPrompt(''); setSelectedImage(null); setResultUrl(null); }}
+                  className={`pb-3 text-sm font-bold ${mode === 'generate' ? 'text-brand-navy border-b-2 border-brand-navy dark:text-brand-lime dark:border-brand-lime' : 'text-gray-500'}`}
+                >
+                    Generate Image (Pro)
+                </button>
+                <button 
+                  onClick={() => { setMode('edit'); setPrompt(''); setSelectedImage(null); setResultUrl(null); }}
+                  className={`pb-3 text-sm font-bold ${mode === 'edit' ? 'text-brand-navy border-b-2 border-brand-navy dark:text-brand-lime dark:border-brand-lime' : 'text-gray-500'}`}
+                >
+                    Edit Image (Flash)
+                </button>
+                <button 
+                  onClick={() => { setMode('video'); setPrompt(''); setSelectedImage(null); setResultUrl(null); }}
+                  className={`pb-3 text-sm font-bold ${mode === 'video' ? 'text-brand-navy border-b-2 border-brand-navy dark:text-brand-lime dark:border-brand-lime' : 'text-gray-500'}`}
+                >
+                    Animate (Veo)
+                </button>
+            </div>
+
+            <div className="bg-white dark:bg-slate-900 p-8 rounded-xl border border-gray-100 dark:border-slate-800 shadow-sm">
+                
+                {/* Inputs */}
+                <div className="space-y-6">
+                    {/* Image Upload for Edit/Video */}
+                    {(mode === 'edit' || mode === 'video') && (
+                        <div>
+                             <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Source Image</label>
+                             <div className="flex items-center justify-center w-full">
+                                <label className="flex flex-col items-center justify-center w-full h-64 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:bg-slate-800 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors relative overflow-hidden">
+                                    {selectedImage ? (
+                                        <img src={selectedImage} alt="Source" className="w-full h-full object-contain" />
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                            <Upload className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400" />
+                                            <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Click to upload</span></p>
+                                        </div>
+                                    )}
+                                    <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
+                                </label>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Prompt Input */}
+                    <div>
+                         <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                             {mode === 'edit' ? 'Editing Instruction' : 'Prompt'}
+                         </label>
+                         <textarea 
+                           className="w-full p-4 border border-gray-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-950 focus:ring-2 focus:ring-brand-navy outline-none"
+                           rows={3}
+                           placeholder={mode === 'edit' ? "e.g., Add a retro filter, remove background person" : "Describe the image or video..."}
+                           value={prompt}
+                           onChange={(e) => setPrompt(e.target.value)}
+                         />
+                    </div>
+
+                    {/* Size Config for Generate */}
+                    {mode === 'generate' && (
+                         <div>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Resolution</label>
+                            <div className="flex gap-4">
+                                {['1K', '2K', '4K'].map(s => (
+                                    <button 
+                                        key={s}
+                                        onClick={() => setImageSize(s as any)}
+                                        className={`px-4 py-2 rounded-lg font-bold text-sm border ${imageSize === s ? 'bg-brand-navy text-white border-brand-navy' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700'}`}
+                                    >
+                                        {s}
+                                    </button>
+                                ))}
+                            </div>
+                         </div>
+                    )}
+                    
+                    {/* Veo API Key Check */}
+                    {mode === 'video' && !hasKey && (
+                        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 rounded-lg text-sm text-yellow-800 dark:text-yellow-200">
+                             Video generation requires a paid API Key. 
+                             <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" className="underline ml-1 font-bold">Billing Info</a>
+                             <button 
+                                onClick={handleSelectKey}
+                                className="block mt-2 px-4 py-2 bg-yellow-600 text-white rounded font-bold hover:bg-yellow-700"
+                             >
+                                 Select API Key
+                             </button>
+                        </div>
+                    )}
+
+                    <button 
+                        onClick={handleAction}
+                        disabled={isLoading || (mode !== 'generate' && !selectedImage) || (mode === 'video' && !hasKey)}
+                        className="w-full py-4 bg-brand-navy text-white rounded-xl font-bold shadow-lg shadow-brand-navy/20 hover:bg-brand-navy/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {isLoading ? (
+                            <>
+                              <RefreshCw className="w-5 h-5 animate-spin" /> Processing...
+                            </>
+                        ) : (
+                            <>
+                              <Sparkles className="w-5 h-5" /> {mode === 'generate' ? 'Generate' : mode === 'edit' ? 'Edit Image' : 'Generate Video'}
+                            </>
+                        )}
+                    </button>
+                </div>
+
+                {/* Result Area */}
+                {resultUrl && (
+                    <div className="mt-8 pt-8 border-t border-gray-100 dark:border-slate-800">
+                        <h3 className="font-bold text-lg mb-4">Result</h3>
+                        <div className="rounded-xl overflow-hidden bg-black/5 dark:bg-white/5 flex items-center justify-center min-h-[300px]">
+                            {mode === 'video' ? (
+                                <video src={resultUrl} controls autoPlay loop className="max-w-full max-h-[500px]" />
+                            ) : (
+                                <img src={resultUrl} alt="Generated result" className="max-w-full max-h-[500px]" />
+                            )}
+                        </div>
+                        <a 
+                          href={resultUrl} 
+                          download={`ascend-creative-${Date.now()}.${mode === 'video' ? 'mp4' : 'png'}`}
+                          className="mt-4 inline-flex items-center gap-2 text-brand-navy dark:text-brand-lime font-bold hover:underline"
+                        >
+                            <Download className="w-4 h-4" /> Download Result
+                        </a>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 };
 
 
@@ -698,7 +910,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ language, onNavigate })
   const t = translations[language].dashboard;
   const isRtl = language === 'ar';
   
-  const [activeView, setActiveView] = useState<'overview' | 'products' | 'orders' | 'customers' | 'design' | 'marketing' | 'analytics' | 'finance' | 'etl' | 'settings'>('overview');
+  const [activeView, setActiveView] = useState<'overview' | 'products' | 'orders' | 'customers' | 'design' | 'marketing' | 'analytics' | 'finance' | 'etl' | 'settings' | 'creative'>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
   // Theme Editor Mode
@@ -717,8 +929,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ language, onNavigate })
     { id: 'finance', label: t.sidebar.finance, icon: DollarSign },
     { id: 'analytics', label: t.sidebar.analytics, icon: BarChart2 },
     { id: 'marketing', label: t.sidebar.marketing, icon: Megaphone },
+    { id: 'creative', label: 'AI Studio', icon: Wand2 }, // New Item
     { id: 'design', label: t.sidebar.design, icon: Palette },
-    { id: 'etl', label: t.sidebar.etl, icon: Database }, // Added ETL
+    { id: 'etl', label: t.sidebar.etl, icon: Database }, 
     { id: 'settings', label: t.sidebar.settings, icon: Settings },
   ];
 
@@ -896,6 +1109,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ language, onNavigate })
              {activeView === 'settings' && <SettingsView language={language} />}
              {activeView === 'analytics' && <AnalyticsView language={language} />}
              {activeView === 'etl' && <DataStudioView language={language} />}
+             {activeView === 'creative' && <CreativeStudioView language={language} />}
           </div>
       </main>
     </div>
