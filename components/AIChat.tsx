@@ -5,7 +5,6 @@ import { MessageCircle, X, Send, Sparkles, ChevronDown, Mic, MicOff, MapPin, Sea
 import { ChatMessage, Language } from '../types';
 import { sendMessageToAI, getGenAIInstance } from '../services/geminiService';
 import { translations } from '../utils/translations';
-import { LiveClient, LiveServerMessage, Modality } from '@google/genai';
 
 interface AIChatProps {
   language: Language;
