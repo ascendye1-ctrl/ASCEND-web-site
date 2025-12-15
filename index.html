@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ASCEND</title>
+    
+    <!-- Performance Optimizations -->
+    <link rel="preconnect" href="https://images.unsplash.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://ui-avatars.com">
+    <link rel="dns-prefetch" href="https://cdn.tailwindcss.com">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              brand: {
+                navy: '#1e3a8a', // Deep Navy from logo text/palette
+                lime: '#bef264', // Bright Lime from gradient
+                sky: '#7dd3fc',  // Sky blue from palette
+                dark: '#020617', // Deep slate for dark mode bg
+              }
+            },
+            animation: {
+              'fade-in': 'fadeIn 0.5s ease-out',
+              'blob': 'blob 20s infinite',
+              'scroll': 'scroll 30s linear infinite',
+            },
+            keyframes: {
+              fadeIn: {
+                '0%': { opacity: '0', transform: 'translateY(10px)' },
+                '100%': { opacity: '1', transform: 'translateY(0)' },
+              },
+              blob: {
+                '0%': { transform: 'translate(0px, 0px) scale(1)' },
+                '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+                '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+                '100%': { transform: 'translate(0px, 0px) scale(1)' },
+              },
+              scroll: {
+                '0%': { transform: 'translateX(0)' },
+                '100%': { transform: 'translateX(-100%)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body { font-family: 'Inter', sans-serif; }
+      /* Custom scrollbar for better aesthetics */
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      
+      /* Dark mode scrollbar */
+      .dark ::-webkit-scrollbar-track { background: transparent; }
+      .dark ::-webkit-scrollbar-thumb { background: #475569; }
+      .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+      /* Premium Background System */
+      .bg-ambient {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+        overflow: hidden;
+        background-color: #f8fafc; /* Light mode base */
+        transition: background-color 0.5s ease;
+      }
+
+      .dark .bg-ambient {
+        background-color: #020617; /* Dark mode base */
+      }
+
+      /* Noise Overlay for Texture */
+      .bg-noise {
+        position: absolute;
+        inset: 0;
+        z-index: 20;
+        opacity: 0.04;
+        pointer-events: none;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      }
+
+      .dark .bg-noise {
+        opacity: 0.05;
+      }
+
+      /* Animated Gradient Blobs - Visual Identity Mesh */
+      .ambient-blob {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(90px);
+        opacity: 0.6;
+        animation: blob 25s infinite alternate;
+      }
+
+      /* Light Mode Blobs - Stronger Lime/Sky Brand Colors */
+      .blob-1 { top: -20%; left: -10%; width: 800px; height: 800px; background: #bef264; animation-delay: 0s; opacity: 0.5; }
+      .blob-2 { bottom: -20%; right: -10%; width: 700px; height: 700px; background: #7dd3fc; animation-delay: 2s; opacity: 0.5; }
+      .blob-3 { top: 40%; left: 30%; width: 500px; height: 500px; background: #e2e8f0; animation-delay: 4s; opacity: 0.4; }
+
+      /* Dark Mode Blobs overrides */
+      .dark .blob-1 { background: #1e3a8a; opacity: 0.25; } /* Navy */
+      .dark .blob-2 { background: #1e1b4b; opacity: 0.3; } /* Dark Indigo */
+      .dark .blob-3 { background: #172554; opacity: 0.2; } /* Blue 950 */
+
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3?external=react,react-dom",
+    "react-router": "https://esm.sh/react-router@6.22.3?external=react,react-dom",
+    "@remix-run/router": "https://esm.sh/@remix-run/router@1.15.3"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body class="text-brand-navy antialiased dark:text-white transition-colors duration-300">
+    <!-- Ambient Background Container -->
+    <div class="bg-ambient">
+      <div class="bg-noise"></div>
+      <div class="ambient-blob blob-1"></div>
+      <div class="ambient-blob blob-2"></div>
+      <div class="ambient-blob blob-3"></div>
+    </div>
+    <div id="root" class="relative z-10"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "ASCEND - AI Powered Commerce",
+  "description": "A modern, Shopify-style e-commerce storefront featuring an AI sales assistant powered by Gemini.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
