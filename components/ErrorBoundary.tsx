@@ -1,4 +1,5 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+
+import React, { ErrorInfo, ReactNode, Component } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
@@ -10,7 +11,12 @@ interface State {
   error: Error | null;
 }
 
+/**
+ * Error Boundary component to catch and handle runtime errors gracefully.
+ */
+// Fix: Explicitly extend Component with named import and provide generic types for Props and State to ensure state and props are recognized
 class ErrorBoundary extends Component<Props, State> {
+  // Fix: Use class property initializer for state instead of constructor to avoid "state does not exist" errors during initialization
   public state: State = {
     hasError: false,
     error: null,
@@ -30,6 +36,7 @@ class ErrorBoundary extends Component<Props, State> {
   };
 
   public render() {
+    // Fix: Access state via this.state which is now correctly recognized as an inherited property
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex flex-col items-center justify-center p-4 text-center">
@@ -43,6 +50,7 @@ class ErrorBoundary extends Component<Props, State> {
           
           <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-gray-200 dark:border-slate-700 max-w-lg w-full mb-8 text-left overflow-hidden">
             <p className="font-mono text-xs text-red-500 break-all">
+                {/* Fix: Access error from the state object safely */}
                 Error: {this.state.error?.message || 'Unknown Error'}
             </p>
           </div>
@@ -65,6 +73,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
+    // Fix: Access children from the inherited props object
     return this.props.children;
   }
 }

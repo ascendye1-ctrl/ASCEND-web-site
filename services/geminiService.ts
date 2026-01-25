@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Chat } from "@google/genai";
 import { Product } from '../types';
 
@@ -78,6 +79,7 @@ export const initializeChat = async (products: Product[]) => {
       };
   }
 
+  // Use gemini-2.5-flash as Maps grounding is only supported in Gemini 2.5 series models.
   chatSession = ai.chats.create({
     model: 'gemini-2.5-flash',
     config: config
@@ -122,7 +124,8 @@ export const generateMarketingImage = async (prompt: string, size: '1K' | '2K' |
 
         for (const part of response.candidates?.[0]?.content?.parts || []) {
             if (part.inlineData) {
-                return `data:image/png;base64,${part.inlineData.data}`;
+                const base64EncodeString: string = part.inlineData.data;
+                return `data:image/png;base64,${base64EncodeString}`;
             }
         }
         throw new Error("No image generated");
@@ -156,7 +159,8 @@ export const editProductImage = async (base64Image: string, prompt: string): Pro
 
         for (const part of response.candidates?.[0]?.content?.parts || []) {
             if (part.inlineData) {
-                return `data:image/png;base64,${part.inlineData.data}`;
+                const base64EncodeString: string = part.inlineData.data;
+                return `data:image/png;base64,${base64EncodeString}`;
             }
         }
         throw new Error("No edited image returned");
@@ -169,7 +173,7 @@ export const editProductImage = async (base64Image: string, prompt: string): Pro
 // 3. Video Generation (Veo)
 // Note: Caller must ensure window.aistudio.hasSelectedApiKey() is true before calling this
 export const generateProductVideo = async (base64Image: string, prompt: string): Promise<string> => {
-    // Create new instance to pick up the key selected via window.aistudio
+    // Create new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date API key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const data = base64Image.split(',')[1] || base64Image;
 
@@ -177,7 +181,7 @@ export const generateProductVideo = async (base64Image: string, prompt: string):
         console.log("Starting Veo generation...");
         let operation = await ai.models.generateVideos({
             model: 'veo-3.1-fast-generate-preview',
-            prompt: prompt, // prompt is optional for image-to-video but good to have
+            prompt: prompt,
             image: {
                 imageBytes: data,
                 mimeType: 'image/png'
@@ -191,9 +195,9 @@ export const generateProductVideo = async (base64Image: string, prompt: string):
 
         console.log("Veo operation started", operation);
 
-        // Polling
+        // Polling loop as per guidelines
         while (!operation.done) {
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            await new Promise(resolve => setTimeout(resolve, 10000));
             operation = await ai.operations.getVideosOperation({ operation: operation });
             console.log("Veo polling...", operation.done);
         }
@@ -201,7 +205,7 @@ export const generateProductVideo = async (base64Image: string, prompt: string):
         const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
         if (!videoUri) throw new Error("No video URI returned");
 
-        // Fetch the actual bytes using the key
+        // Fetch the MP4 bytes with API key
         const videoResponse = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
         const videoBlob = await videoResponse.blob();
         return URL.createObjectURL(videoBlob);
@@ -218,8 +222,9 @@ export const generateProductVideo = async (base64Image: string, prompt: string):
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
     const ai = getClient();
     try {
+        // Use gemini-3-flash-preview for basic text tasks
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: `Write a compelling, short marketing description (max 2 sentences) for a product named "${productName}" in the category "${category}". Make it sound premium and inspiring.`,
         });
         return response.text || "Experience premium quality with our latest collection.";
@@ -232,8 +237,9 @@ export const generateProductDescription = async (productName: string, category: 
 export const analyzeErrorLog = async (logData: string): Promise<string> => {
     const ai = getClient();
     try {
+        // Use gemini-3-pro-preview for complex reasoning tasks
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-pro-preview',
             contents: `You are a Senior DevOps Engineer. Analyze the following system diagnostic log and suggest a technical solution in 1 concise sentence: "${logData}"`,
         });
         return response.text || "Recommended action: Perform a system restart.";
@@ -243,5 +249,5 @@ export const analyzeErrorLog = async (logData: string): Promise<string> => {
     }
 }
 
-// Live API Helper (Client needs to be created in component to manage state)
+// Live API Helper
 export const getGenAIInstance = () => getClient();
