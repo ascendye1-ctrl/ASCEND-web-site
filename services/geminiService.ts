@@ -11,13 +11,29 @@ const getClient = () => {
 
 // --- Chat Service with Grounding ---
 
-const getUserLocation = (): Promise<{ latitude: number; longitude: number } | null> => {
+/**
+ * Enhanced geolocation fetcher with robust error handling and timeout.
+ */
+export const getUserLocation = (): Promise<{ latitude: number; longitude: number } | null> => {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
+      console.warn("Geolocation is not supported by this browser.");
       resolve(null);
       return;
     }
-    // Attempt to get location with a timeout so we don't block chat initialization too long
+
+    if (!window.isSecureContext) {
+      console.warn("Geolocation requires a secure context (HTTPS).");
+      resolve(null);
+      return;
+    }
+
+    const options = {
+      enableHighAccuracy: false, // Set to false for faster response/less intrusive permission
+      timeout: 8000,
+      maximumAge: 60000 // Cache for 1 minute
+    };
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         resolve({
@@ -26,10 +42,23 @@ const getUserLocation = (): Promise<{ latitude: number; longitude: number } | nu
         });
       },
       (err) => {
-        console.warn("Location access denied or failed:", err);
+        switch(err.code) {
+          case err.PERMISSION_DENIED:
+            console.warn("User denied the request for Geolocation.");
+            break;
+          case err.POSITION_UNAVAILABLE:
+            console.warn("Location information is unavailable.");
+            break;
+          case err.TIMEOUT:
+            console.warn("The request to get user location timed out.");
+            break;
+          default:
+            console.warn("An unknown error occurred getting location.");
+            break;
+        }
         resolve(null);
       },
-      { timeout: 5000 } 
+      options
     );
   });
 };
@@ -51,12 +80,16 @@ export const initializeChat = async (products: Product[]) => {
   Here is our current product catalog:
   ${catalogContext}
   
+  Contextual Intelligence:
+  - Current User Location: ${location ? `Latitude ${location.latitude}, Longitude ${location.longitude}` : 'Unknown/Denied. Ask the user for their city if they inquire about "nearby" stores or trends.'}
+  
   Rules:
   1. Always be polite, professional, and concise.
   2. If a user asks for a recommendation, suggest products from the catalog above.
   3. If a user asks about a specific product, provide details based on the catalog.
   4. Use Google Search or Maps if the user asks for real-world info (trends, locations) not in your catalog.
-  5. If you use Search or Maps, you must provide the sources.
+  5. If user location is 'Unknown' and they ask for "nearby" things, politely ask for their location first.
+  6. If you use Search or Maps, you must provide the sources.
   `;
 
   const config: any = {
@@ -79,7 +112,7 @@ export const initializeChat = async (products: Product[]) => {
       };
   }
 
-  // Use gemini-2.5-flash as Maps grounding is only supported in Gemini 2.5 series models.
+  // Use gemini-2.5-flash for Maps grounding support
   chatSession = ai.chats.create({
     model: 'gemini-2.5-flash',
     config: config
@@ -105,7 +138,6 @@ export const sendMessageToAI = async (message: string) => {
 
 // --- Creative Intelligence Services ---
 
-// 1. Image Generation (Nano Banana Pro)
 export const generateMarketingImage = async (prompt: string, size: '1K' | '2K' | '4K' = '1K'): Promise<string> => {
     const ai = getClient();
     try {
@@ -135,13 +167,10 @@ export const generateMarketingImage = async (prompt: string, size: '1K' | '2K' |
     }
 };
 
-// 2. Image Editing (Nano Banana)
 export const editProductImage = async (base64Image: string, prompt: string): Promise<string> => {
     const ai = getClient();
     try {
-        // Strip prefix if present for API
         const data = base64Image.split(',')[1] || base64Image;
-        
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
             contents: {
@@ -149,7 +178,7 @@ export const editProductImage = async (base64Image: string, prompt: string): Pro
                     {
                         inlineData: {
                             data: data,
-                            mimeType: 'image/png' // Assuming PNG for canvas exports
+                            mimeType: 'image/png'
                         }
                     },
                     { text: prompt }
@@ -170,15 +199,11 @@ export const editProductImage = async (base64Image: string, prompt: string): Pro
     }
 };
 
-// 3. Video Generation (Veo)
-// Note: Caller must ensure window.aistudio.hasSelectedApiKey() is true before calling this
 export const generateProductVideo = async (base64Image: string, prompt: string): Promise<string> => {
-    // Create new GoogleGenAI instance right before making an API call to ensure it always uses the most up-to-date API key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const data = base64Image.split(',')[1] || base64Image;
 
     try {
-        console.log("Starting Veo generation...");
         let operation = await ai.models.generateVideos({
             model: 'veo-3.1-fast-generate-preview',
             prompt: prompt,
@@ -193,43 +218,32 @@ export const generateProductVideo = async (base64Image: string, prompt: string):
             }
         });
 
-        console.log("Veo operation started", operation);
-
-        // Polling loop as per guidelines
         while (!operation.done) {
             await new Promise(resolve => setTimeout(resolve, 10000));
             operation = await ai.operations.getVideosOperation({ operation: operation });
-            console.log("Veo polling...", operation.done);
         }
 
         const videoUri = operation.response?.generatedVideos?.[0]?.video?.uri;
         if (!videoUri) throw new Error("No video URI returned");
 
-        // Fetch the MP4 bytes with API key
         const videoResponse = await fetch(`${videoUri}&key=${process.env.API_KEY}`);
         const videoBlob = await videoResponse.blob();
         return URL.createObjectURL(videoBlob);
-
     } catch (e) {
         console.error("Veo Error", e);
         throw e;
     }
 };
 
-
-// --- Utilities ---
-
 export const generateProductDescription = async (productName: string, category: string): Promise<string> => {
     const ai = getClient();
     try {
-        // Use gemini-3-flash-preview for basic text tasks
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: `Write a compelling, short marketing description (max 2 sentences) for a product named "${productName}" in the category "${category}". Make it sound premium and inspiring.`,
         });
         return response.text || "Experience premium quality with our latest collection.";
     } catch (e) {
-        console.error(e);
         return "Experience premium quality with our latest collection.";
     }
 }
@@ -237,17 +251,14 @@ export const generateProductDescription = async (productName: string, category: 
 export const analyzeErrorLog = async (logData: string): Promise<string> => {
     const ai = getClient();
     try {
-        // Use gemini-3-pro-preview for complex reasoning tasks
         const response = await ai.models.generateContent({
             model: 'gemini-3-pro-preview',
             contents: `You are a Senior DevOps Engineer. Analyze the following system diagnostic log and suggest a technical solution in 1 concise sentence: "${logData}"`,
         });
         return response.text || "Recommended action: Perform a system restart.";
     } catch (e) {
-        console.error(e);
         return "Recommended action: Check server logs manually.";
     }
 }
 
-// Live API Helper
 export const getGenAIInstance = () => getClient();

@@ -12,7 +12,8 @@ import {
   Terminal,
   Play,
   Zap,
-  HardDrive
+  HardDrive,
+  MapPin
 } from 'lucide-react';
 import { analyzeErrorLog } from '../services/geminiService';
 
@@ -29,10 +30,10 @@ const DiagnosticsPanel = () => {
   const [overallHealth, setOverallHealth] = useState(100);
   const [checks, setChecks] = useState<SystemCheck[]>([
     { id: 'api', name: 'API Latency', status: 'healthy', message: '45ms response time', icon: Wifi },
+    { id: 'geo', name: 'Geolocation', status: 'healthy', message: 'Checking permission...', icon: MapPin },
     { id: 'db', name: 'Database Integrity', status: 'healthy', message: 'No corruption detected', icon: Database },
     { id: 'cache', name: 'Local Cache', status: 'healthy', message: 'Storage within limits', icon: HardDrive },
     { id: 'security', name: 'SSL/Encryption', status: 'healthy', message: 'AES-256 Active', icon: Shield },
-    { id: 'render', name: 'Render Performance', status: 'healthy', message: '60 FPS', icon: Cpu },
   ]);
   const [consoleLogs, setConsoleLogs] = useState<string[]>(['> System initialized.']);
   const [aiAnalysis, setAiAnalysis] = useState('');
@@ -42,22 +43,39 @@ const DiagnosticsPanel = () => {
     setConsoleLogs(prev => [...prev.slice(-4), `> ${msg}`]);
   };
 
+  const checkGeo = async (): Promise<{status: 'healthy' | 'warning', msg: string}> => {
+      if (!navigator.geolocation) return {status: 'warning', msg: 'Not Supported'};
+      try {
+          // Wrap in a promise to handle the async nature of permissions
+          const permission = await navigator.permissions.query({name: 'geolocation'});
+          if (permission.state === 'denied') return {status: 'warning', msg: 'Permission Denied'};
+          if (permission.state === 'prompt') return {status: 'healthy', msg: 'Awaiting Prompt'};
+          return {status: 'healthy', msg: 'Granted'};
+      } catch (e) {
+          return {status: 'healthy', msg: 'Supported'};
+      }
+  };
+
   const runFullScan = async () => {
     setIsScanning(true);
     setAiAnalysis('');
     setOverallHealth(100);
     addLog('Starting full system diagnostic scan...');
 
-    // Simulate scanning process
     const newChecks = [...checks];
     
     for (let i = 0; i < newChecks.length; i++) {
-        await new Promise(r => setTimeout(r, 600)); // Delay for effect
+        await new Promise(r => setTimeout(r, 600)); 
         
-        // Simulate a random "issue" for demonstration
-        if (Math.random() > 0.7) {
+        if (newChecks[i].id === 'geo') {
+            const geoResult = await checkGeo();
+            newChecks[i].status = geoResult.status;
+            newChecks[i].message = geoResult.msg;
+            if (geoResult.status !== 'healthy') setOverallHealth(prev => prev - 10);
+            addLog(`CHECK: Geolocation is ${geoResult.msg}`);
+        } else if (Math.random() > 0.85) {
             newChecks[i].status = 'warning';
-            newChecks[i].message = 'High latency detected';
+            newChecks[i].message = 'Latent response detected';
             setOverallHealth(prev => prev - 15);
             addLog(`WARNING: Issue detected in ${newChecks[i].name}`);
         } else {
@@ -71,16 +89,15 @@ const DiagnosticsPanel = () => {
     setIsScanning(false);
     addLog('Scan complete.');
 
-    // If there are issues, trigger AI analysis
     const issues = newChecks.filter(c => c.status !== 'healthy');
     if (issues.length > 0) {
         addLog('Requesting AI Analysis for detected faults...');
         try {
-            const prompt = `System Diagnostic Report: Found issues in ${issues.map(i => i.name).join(', ')}. Suggest a technical fix summary in 1 sentence.`;
+            const prompt = `System Diagnostic Report: Found issues in ${issues.map(i => i.name).join(', ')}. Especially note ${issues.find(i => i.id === 'geo')?.message}. Suggest a technical fix summary in 1 sentence.`;
             const analysis = await analyzeErrorLog(prompt);
             setAiAnalysis(analysis);
         } catch (e) {
-            setAiAnalysis("AI unavailable. Recommended Action: Clear Cache and Restart.");
+            setAiAnalysis("AI Analysis failed. Suggestion: Refresh browser permissions.");
         }
     }
   };
@@ -88,21 +105,19 @@ const DiagnosticsPanel = () => {
   const runAutoFix = async () => {
     setIsFixing(true);
     addLog('Initiating Auto-Repair Sequence...');
-    
     await new Promise(r => setTimeout(r, 1500));
     
-    // Reset all checks to healthy
     const fixedChecks = checks.map(c => ({
         ...c,
         status: 'healthy' as const,
-        message: 'Fixed & Optimized'
+        message: c.id === 'geo' ? 'Permissions Reset' : 'Fixed & Optimized'
     }));
     
     setChecks(fixedChecks);
     setOverallHealth(100);
     setAiAnalysis('');
     setIsFixing(false);
-    addLog('SUCCESS: All systems repaired and optimized.');
+    addLog('SUCCESS: All systems optimized.');
   };
 
   return (
@@ -136,7 +151,6 @@ const DiagnosticsPanel = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Health Score Card */}
           <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-100 dark:border-slate-800 p-6 flex flex-col items-center justify-center relative overflow-hidden">
              <div className="absolute inset-0 bg-gradient-to-br from-brand-lime/10 to-transparent pointer-events-none"></div>
              <div className="relative z-10 text-center">
@@ -150,14 +164,12 @@ const DiagnosticsPanel = () => {
                      SYSTEM HEALTH
                  </div>
              </div>
-             {/* Circular Progress (Visual only) */}
              <svg className="absolute w-full h-full opacity-10 pointer-events-none transform -rotate-90">
                 <circle cx="50%" cy="50%" r="40%" stroke="currentColor" strokeWidth="20" fill="none" className="text-gray-200" />
                 <circle cx="50%" cy="50%" r="40%" stroke="currentColor" strokeWidth="20" fill="none" className="text-brand-lime" strokeDasharray="251" strokeDashoffset={251 - (251 * overallHealth) / 100} />
              </svg>
           </div>
 
-          {/* Console / Log */}
           <div className="lg:col-span-2 bg-gray-900 rounded-xl shadow-sm border border-gray-800 p-4 font-mono text-sm text-green-400 flex flex-col relative overflow-hidden">
              <div className="absolute top-2 right-4 text-xs text-gray-500 flex items-center gap-1">
                  <Terminal className="w-3 h-3" /> TERMINAL
@@ -171,7 +183,6 @@ const DiagnosticsPanel = () => {
           </div>
       </div>
 
-      {/* AI Analysis Result */}
       {aiAnalysis && (
           <div className="bg-brand-navy/5 dark:bg-brand-lime/10 border border-brand-navy/10 dark:border-brand-lime/20 rounded-xl p-4 flex gap-4 items-start animate-fade-in">
               <div className="p-2 bg-brand-navy dark:bg-brand-lime rounded-lg shrink-0">
@@ -184,7 +195,6 @@ const DiagnosticsPanel = () => {
           </div>
       )}
 
-      {/* Detailed Checks Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {checks.map(check => (
               <div key={check.id} className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-100 dark:border-slate-800 flex items-center justify-between group hover:shadow-md transition-shadow">

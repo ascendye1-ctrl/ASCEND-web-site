@@ -1,5 +1,5 @@
 
-import React, { ErrorInfo, ReactNode, Component } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
 interface Props {
@@ -14,10 +14,10 @@ interface State {
 /**
  * Error Boundary component to catch and handle runtime errors gracefully.
  */
-// Fix: Explicitly extend Component with named import and provide generic types for Props and State to ensure state and props are recognized
-class ErrorBoundary extends Component<Props, State> {
-  // Fix: Use class property initializer for state instead of constructor to avoid "state does not exist" errors during initialization
-  public state: State = {
+// Fix: Explicitly extend React.Component with Props and State generics to ensure the TypeScript compiler 
+// correctly inherits and identifies the 'props' and 'state' members on the ErrorBoundary class instance.
+class ErrorBoundary extends React.Component<Props, State> {
+  public override state: State = {
     hasError: false,
     error: null,
   };
@@ -26,7 +26,7 @@ class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
@@ -35,8 +35,8 @@ class ErrorBoundary extends Component<Props, State> {
     window.location.href = '/';
   };
 
-  public render() {
-    // Fix: Access state via this.state which is now correctly recognized as an inherited property
+  public override render() {
+    // Access state via this.state.
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-slate-900 flex flex-col items-center justify-center p-4 text-center">
@@ -50,7 +50,7 @@ class ErrorBoundary extends Component<Props, State> {
           
           <div className="bg-white dark:bg-slate-800 p-4 rounded-lg border border-gray-200 dark:border-slate-700 max-w-lg w-full mb-8 text-left overflow-hidden">
             <p className="font-mono text-xs text-red-500 break-all">
-                {/* Fix: Access error from the state object safely */}
+                {/* Safely access the error object from the state. */}
                 Error: {this.state.error?.message || 'Unknown Error'}
             </p>
           </div>
@@ -73,7 +73,7 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    // Fix: Access children from the inherited props object
+    // Correctly returning children from the inherited props object.
     return this.props.children;
   }
 }
